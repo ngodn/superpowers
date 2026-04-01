@@ -7,9 +7,9 @@ description: Use when editing, creating, or inspecting PowerPoint (.pptx) files 
 
 ## Overview
 
-Edit PowerPoint presentations using `rtk pptx` for both reading and writing. Falls back to python-pptx for operations rtk cannot handle yet.
+Edit PowerPoint presentations using `rtk pptx`. It handles reading, writing, and modifying slides in Rust. Falls back to python-pptx only for operations rtk does not support yet.
 
-**Core principle:** Read fast, edit fast, always verify. Try Rust first, Python second.
+**Core principle:** Read fast, edit fast, always verify. Try rtk first, python second.
 
 ## When to Use
 
@@ -19,70 +19,108 @@ Edit PowerPoint presentations using `rtk pptx` for both reading and writing. Fal
 - User asks to modify text, colors, fonts, or layout on slides
 - User shares a .pptx file and asks about its contents
 
+## Available Commands
+
+### Reading
+
+```bash
+rtk pptx info file.pptx                    # Slide count, dimensions, title, author
+rtk pptx slides file.pptx                  # List all slides with titles
+rtk pptx read file.pptx 3                  # Read slide 3 (shapes, text, colors, fonts)
+rtk pptx read file.pptx 3-5                # Read slides 3 through 5
+rtk pptx find file.pptx "Status"           # Find shapes containing "Status" across all slides
+```
+
+### Modifying Existing Content
+
+```bash
+rtk pptx set-text file.pptx 3 "Shape Name" "New text"     # Replace text in a named shape
+rtk pptx set-fill file.pptx 3 "Shape Name" "#4472C4"      # Set shape fill color
+```
+
+Shape names come from `rtk pptx read` output. Use the XML name shown in brackets.
+
+### Adding New Content
+
+```bash
+# Add a textbox
+rtk pptx add-textbox file.pptx 3 --left 500000 --top 2000000 --width 5000000 --height 500000 --text "Hello"
+
+# Add a shape (rectangle, oval, diamond, arrow, chevron, cloud, star, heart, etc.)
+rtk pptx add-shape file.pptx 3 rectangle --left 500000 --top 2000000 --width 2000000 --height 800000 --fill "#4472C4" --text "Label"
+
+# Add a table
+rtk pptx add-table file.pptx 3 5 3 --left 500000 --top 1500000 --width 8000000 --height 3000000
+```
+
+Positions and sizes are in EMU (English Metric Units). Quick reference:
+- 1 inch = 914400 EMU
+- 1 cm = 360000 EMU
+- Typical slide: 9144000 x 5143500 EMU (10" x 5.63")
+
+### Slide Management
+
+```bash
+rtk pptx delete-slide file.pptx 5          # Delete slide 5
+rtk pptx move-slide file.pptx 5 2          # Move slide 5 to position 2
+```
+
+### Supported Shape Types for add-shape
+
+rectangle, oval, diamond, triangle, right-triangle, parallelogram, trapezoid, pentagon, hexagon, octagon, arrow-right, arrow-left, arrow-up, arrow-down, chevron, star-5, heart, cloud, callout, plus
+
 ## Workflow
 
 ### Step 1: Inspect First
 
-Before making any changes, understand the presentation structure.
+Always read the presentation before making changes.
 
 ```bash
-rtk pptx info presentation.pptx           # Slide count, dimensions, metadata
-rtk pptx slides presentation.pptx         # List all slides with titles
-rtk pptx read presentation.pptx 3         # Read slide 3 (shapes, text, colors, fonts)
-rtk pptx read presentation.pptx 3-5       # Read slides 3 through 5
-rtk pptx find presentation.pptx "Status"  # Find shapes containing "Status" across all slides
-```
-
-If `rtk pptx` is not installed, fall back to python-pptx:
-
-```python
-python3 -c "
-from pptx import Presentation
-prs = Presentation('presentation.pptx')
-for i, slide in enumerate(prs.slides):
-    title = ''
-    for shape in slide.shapes:
-        if shape.has_text_frame:
-            title = shape.text_frame.text[:80]
-            break
-    print(f'Slide {i+1}: {title}')
-"
+rtk pptx slides file.pptx                  # Overview of all slides
+rtk pptx read file.pptx 15                 # Detailed view of slide 15
 ```
 
 ### Step 2: Plan Changes
 
-Before editing, tell the user what you plan to change:
-- Which slides will be modified
-- What specific shapes/text will change
-- Whether new slides will be added or removed
-
-Get confirmation before destructive changes (removing slides, replacing content).
+Tell the user what you plan to change. Get confirmation before destructive operations (deleting slides, replacing content).
 
 ### Step 3: Edit
 
-**Try `rtk pptx` write commands first:**
+Use rtk pptx commands. For each edit:
 
 ```bash
-# Modify text in a shape
-rtk pptx set-text presentation.pptx 3 "Shape Name" "New text content"
+# Edit
+rtk pptx set-text file.pptx 15 "Google Shape;245;p30" "New Status"
 
-# Set shape fill color
-rtk pptx set-fill presentation.pptx 3 "Shape Name" "#4472C4"
-
-# Set font properties
-rtk pptx set-font presentation.pptx 3 "Shape Name" --size 24 --bold --color "#FFFFFF"
-
-# Add a new text box
-rtk pptx add-textbox presentation.pptx 3 "My Label" --left 1in --top 2in --width 4in --height 1in --text "Hello"
-
-# Delete a slide
-rtk pptx delete-slide presentation.pptx 5
-
-# Move a slide
-rtk pptx move-slide presentation.pptx 5 2    # Move slide 5 to position 2
+# Or add new content
+rtk pptx add-textbox file.pptx 15 --left 500000 --top 3000000 --width 8000000 --height 400000 --text "Added note"
 ```
 
-**If `rtk pptx` does not support the operation or fails, fall back to python-pptx:**
+### Step 4: Verify
+
+After every edit, re-read the slide:
+
+```bash
+rtk pptx read file.pptx 15
+```
+
+Never claim an edit is done without verifying.
+
+## When to Fall Back to python-pptx
+
+rtk pptx does not support these operations yet. Use python-pptx for:
+
+- Modifying font properties on existing text (size, bold, italic, color)
+- Editing table cell content and formatting
+- Adding images to slides
+- Adding or modifying charts
+- Working with animations and transitions
+- Cloning slides
+- Modifying SmartArt
+- Group shape manipulation
+- Setting text alignment on existing shapes
+
+For these cases:
 
 ```python
 python3 << 'PYEOF'
@@ -91,102 +129,35 @@ from pptx.util import Pt, Emu, Inches
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
-prs = Presentation('presentation.pptx')
-slide = prs.slides[2]  # Slide 3 (0-indexed)
+prs = Presentation('file.pptx')
+slide = prs.slides[14]  # 0-indexed
 
 for shape in slide.shapes:
-    if shape.has_text_frame and "old text" in shape.text:
-        for paragraph in shape.text_frame.paragraphs:
-            for run in paragraph.runs:
-                run.text = run.text.replace("old text", "new text")
+    if shape.has_text_frame and "target text" in shape.text:
+        for para in shape.text_frame.paragraphs:
+            for run in para.runs:
+                run.font.size = Pt(24)
+                run.font.bold = True
+                run.font.color.rgb = RGBColor(0xFF, 0x00, 0x00)
 
-prs.save('presentation.pptx')
-print("Saved")
+prs.save('file.pptx')
 PYEOF
 ```
 
-Common python-pptx operations that may not be in rtk yet:
-- Adding images to slides
-- Creating charts
-- Modifying animations and transitions
-- Working with SmartArt
-- Cloning slides (use lxml deepcopy approach)
-- Group shape manipulation
-- Table cell editing
-
-### Step 4: Verify
-
-After every edit, re-read the modified slide:
-
-```bash
-rtk pptx read presentation.pptx 3
-```
-
-Never claim an edit is done without verifying the output. python-pptx silently corrupts files sometimes. rtk pptx read will show you the actual state.
-
-## Common Patterns
-
-### Replacing text across all slides
-
-```bash
-rtk pptx find presentation.pptx "Old Company"
-# Shows which slides/shapes contain it
-# Then for each:
-rtk pptx set-text presentation.pptx 3 "Title 1" "New Company"
-```
-
-### Updating colors in a diagram
-
-```bash
-rtk pptx read presentation.pptx 15    # See all shapes with fill colors
-rtk pptx set-fill presentation.pptx 15 "Ordered" "#2563EB"
-rtk pptx set-fill presentation.pptx 15 "In Progress" "#059669"
-```
-
-### Cloning a slide
-
-python-pptx does not have built-in clone. Use lxml:
-
-```python
-python3 << 'PYEOF'
-from pptx import Presentation
-from copy import deepcopy
-
-prs = Presentation('presentation.pptx')
-source = prs.slides[2]
-
-slide_layout = source.slide_layout
-new_slide = prs.slides.add_slide(slide_layout)
-
-for shape in source.shapes:
-    el = deepcopy(shape._element)
-    new_slide.shapes._spTree.append(el)
-
-prs.save('presentation.pptx')
-print("Slide cloned")
-PYEOF
-```
-
-### Updating a flowchart or diagram
-
-1. Read the slide to understand existing shapes and positions
-2. Modify text and colors in-place, do not rebuild from scratch
-3. Preserve the original layout structure
-4. Verify after each change
+After any python-pptx edit, verify with `rtk pptx read`.
 
 ## Red Flags
 
 | Thought | Reality |
 |---------|---------|
-| "Let me rewrite the whole slide" | Modify in-place. Rebuilding loses formatting, animations, positioning. |
-| "I'll use a template" | Unless the user asked for a new slide, edit the existing one. |
+| "Let me rewrite the whole slide" | Modify in-place. Rebuilding loses formatting. |
+| "I'll use python-pptx for everything" | Try rtk first. It's faster and uses fewer tokens. |
 | "I don't need to verify" | Always read the slide after editing. |
-| "This shape doesn't have text" | Check all shapes. Group shapes contain child shapes. |
 | "I'll save to a new file" | Save to the same file unless asked otherwise. |
-| "rtk pptx failed, skip to python" | Check the error. If it's a missing subcommand, python is fine. If it's a file error, python will fail too. |
+| "rtk failed so skip to python" | Check the error. If it's a shape name issue, fix the name. |
 
 ## Fallback Order
 
-1. `rtk pptx` commands (fast, Rust-native, no Python startup, both read and write)
-2. `python3 -c "from pptx import Presentation; ..."` (full python-pptx, slower but handles everything)
+1. `rtk pptx` commands (Rust-native, fast, both read and write)
+2. `python3 -c "from pptx import Presentation; ..."` (for unsupported operations)
 3. If python-pptx not installed: `pip install python-pptx` then retry
